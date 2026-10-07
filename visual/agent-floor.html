@@ -1,0 +1,771 @@
+<title>Contract Agent Floor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-screen app. 3D office floor on the left, a desk-detail + live run log panel on the right; stacks on phones. */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --ink: #16202b;
+  --muted: #5b6875;
+  --line: #d5dce3;
+  --accent: #0f766e;
+  --accent-soft: #d6ece9;
+  --ok: #2e8a55;
+  --wait: #b9770e;
+  --plan: #7c8894;
+
+  --a-claude: #c8643b;
+  --a-webforms: #3a6fb0;
+  --a-docusign: #d49a12;
+  --a-open: #9aa6b2;
+
+  --scene-bg: #dce3e9;
+  --scene-floor: #f7f9fa;
+  --scene-grid: #cdd5dd;
+  --scene-desk: #cfb38d;
+  --scene-metal: #6b7682;
+  --scene-chair: #2b3540;
+  --scene-bot: #e9edf1;
+
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10161d; --surface: #18212b; --ink: #e6ecf2; --muted: #93a1af; --line: #283442;
+    --accent: #3cc5b3; --accent-soft: #163a37; --ok: #4cc283; --wait: #e2a53a; --plan: #7f8d9b;
+    --a-claude: #e07b52; --a-webforms: #5b8fd3; --a-docusign: #e8b234; --a-open: #6c7a88;
+    --scene-bg: #0d1318; --scene-floor: #1a2430; --scene-grid: #2a3746; --scene-desk: #8c6f4e;
+    --scene-metal: #4c5762; --scene-chair: #0f151b; --scene-bot: #c9d1d9;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10161d; --surface: #18212b; --ink: #e6ecf2; --muted: #93a1af; --line: #283442;
+  --accent: #3cc5b3; --accent-soft: #163a37; --ok: #4cc283; --wait: #e2a53a; --plan: #7f8d9b;
+  --a-claude: #e07b52; --a-webforms: #5b8fd3; --a-docusign: #e8b234; --a-open: #6c7a88;
+  --scene-bg: #0d1318; --scene-floor: #1a2430; --scene-grid: #2a3746; --scene-desk: #8c6f4e;
+  --scene-metal: #4c5762; --scene-chair: #0f151b; --scene-bot: #c9d1d9;
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.5; }
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+
+.bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  padding-block: 12px; padding-inline: 20px;
+  border-bottom: 1px solid var(--line); background: var(--surface);
+}
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.mark { width: 30px; height: 30px; border-radius: 8px; background: var(--ink); position: relative; flex: none; }
+.mark::after { content: ""; position: absolute; left: 7px; right: 7px; bottom: 9px; height: 2px; background: var(--a-docusign); border-radius: 2px; transform: rotate(-8deg); }
+.mark::before { content: ""; position: absolute; left: 8px; top: 8px; width: 9px; height: 2px; background: var(--bg); box-shadow: 0 4px 0 var(--bg); }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: 19px; letter-spacing: -0.01em; margin: 0; line-height: 1.2; }
+.brand p { margin: 0; color: var(--muted); font-size: 12.5px; }
+.bar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  border: 1px solid var(--accent); background: var(--accent); color: var(--surface);
+  padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer;
+}
+.btn:disabled { opacity: .55; cursor: default; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn.ghost:hover { border-color: var(--muted); }
+
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 380px; min-height: 0; }
+.scene-wrap { position: relative; min-height: 0; overflow: hidden; background: var(--scene-bg); }
+#scene { display: block; width: 100%; height: 100%; touch-action: none; }
+#labels { position: absolute; inset: 0; pointer-events: none; }
+.label {
+  position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+  padding: 4px 10px 4px 7px; font-size: 12px; white-space: nowrap;
+  box-shadow: 0 2px 8px rgb(0 0 0 / .08);
+  transition: border-color .15s;
+}
+.label .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.label b { font-weight: 600; }
+.label .st { color: var(--muted); font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
+.label .st i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.label.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.label.open { border-style: dashed; background: color-mix(in srgb, var(--surface) 80%, transparent); }
+.label.dest { border-style: dashed; }
+.hint {
+  position: absolute; left: 16px; bottom: 14px; font-family: var(--f-mono); font-size: 11px; color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 85%, transparent); padding: 4px 8px; border-radius: 6px; pointer-events: none;
+}
+
+.panel { overflow: auto; border-left: 1px solid var(--line); background: var(--surface); padding-block: 20px; padding-inline: 20px; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.eyebrow { font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.d-head { display: flex; align-items: flex-start; gap: 12px; }
+.d-sw { width: 38px; height: 38px; border-radius: 10px; flex: none; display: grid; place-items: center; color: #fff; font-family: var(--f-display); font-weight: 700; font-size: 17px; }
+.d-head h2 { font-family: var(--f-display); font-weight: 700; font-size: 22px; margin: 0; line-height: 1.15; text-wrap: balance; }
+.d-head .role { color: var(--muted); font-size: 13px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); margin-top: 6px; }
+.pill i { width: 7px; height: 7px; border-radius: 50%; }
+.d-sum { margin: 12px 0 0; max-width: 62ch; }
+.d-sec { margin-top: 16px; }
+.d-sec h4 { margin: 0 0 6px; font-family: var(--f-mono); font-weight: 500; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.d-sec ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
+.chip i { width: 6px; height: 6px; border-radius: 50%; }
+
+.run { border-top: 1px solid var(--line); padding-top: 18px; }
+.run-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.run-head h3 { font-family: var(--f-display); font-size: 17px; margin: 0; }
+.sim { font-family: var(--f-mono); font-size: 11px; color: var(--wait); }
+.confirm { margin-top: 12px; border: 1px solid var(--accent); border-radius: 10px; padding: 14px; background: var(--accent-soft); }
+.confirm h4 { margin: 0 0 8px; font-size: 13px; }
+.confirm dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; margin: 0 0 12px; font-size: 13px; }
+.confirm dt { color: var(--muted); font-family: var(--f-mono); font-size: 11.5px; padding-top: 2px; }
+.confirm dd { margin: 0; font-variant-numeric: tabular-nums; }
+.confirm .row { display: flex; gap: 8px; flex-wrap: wrap; }
+#log { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+#log li { display: grid; grid-template-columns: 44px 10px minmax(0, 1fr); gap: 8px; align-items: baseline; font-size: 13px; }
+#log time { font-family: var(--f-mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#log .dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; }
+#log .empty { display: block; color: var(--muted); font-size: 13px; }
+
+@media (max-width: 860px) {
+  .app { height: auto; }
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .scene-wrap { height: 60svh; min-height: 360px; }
+  .panel { border-left: 0; border-top: 1px solid var(--line); overflow: visible; padding-inline: 16px; }
+  .bar { padding-inline: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .label { transition: none; } }
+</style>
+
+<div class="app">
+  <header class="bar">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div>
+        <h1>Contract Agent Floor</h1>
+        <p>Talk to Claude. It pulls the contract, fills it in, and hands it to DocuSign once you approve.</p>
+      </div>
+    </div>
+    <div class="bar-actions">
+      <button class="btn" id="runBtn" type="button">Run sample deal</button>
+      <button class="btn ghost" id="resetBtn" type="button">Reset view</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="scene-wrap" id="sceneWrap">
+      <canvas id="scene" aria-label="3D office floor with agent desks"></canvas>
+      <div id="labels"></div>
+      <div class="hint">Drag to orbit · scroll to zoom · click a desk</div>
+    </div>
+
+    <aside class="panel">
+      <section id="detail" aria-live="polite"></section>
+
+      <section class="run">
+        <div class="run-head">
+          <h3>Sample deal</h3>
+          <span class="sim">Simulation · nothing is sent</span>
+        </div>
+        <div class="confirm" id="confirm" hidden>
+          <h4>Claude is ready to send. Look it over.</h4>
+          <dl>
+            <dt>Template</dt><dd>Services Agreement</dd>
+            <dt>Client</dt><dd>Jane Rivera, Acme Co. (example)</dd>
+            <dt>Monthly fee</dt><dd>$4,500</dd>
+            <dt>Start date</dt><dd>Nov 1, 2026</dd>
+            <dt>Term</dt><dd>12 months</dd>
+            <dt>Payment</dt><dd>Net 30</dd>
+            <dt>Signers</dt><dd>1. Jane Rivera · 2. You (countersign)</dd>
+          </dl>
+          <div class="row">
+            <button class="btn" id="sendBtn" type="button">Send (simulated)</button>
+            <button class="btn ghost" id="cancelBtn" type="button">Cancel</button>
+          </div>
+        </div>
+        <ol id="log"><li class="empty">Run the sample deal to watch a contract move from desk to desk.</li></ol>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const tok = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  // ---------- Agents ----------
+  const AGENTS = [
+    {
+      id: 'claude', name: 'Claude', initial: 'C', role: 'Intake & orchestrator', colorVar: '--a-claude', pos: [0, 4.2],
+      status: 'ok', statusText: 'Ready',
+      summary: 'The one you talk to. Takes your request, asks about anything missing, and shows you the finished contract before anything goes out.',
+      does: [
+        'Understands requests like “Send the services agreement to Acme, $4,500 a month, starting Nov 1.”',
+        'Asks follow-ups for pricing, dates and terms',
+        'Hands the contract to DocuSign only after you say send'
+      ],
+      tools: [['DocuSign connector', 'ok'], ['Google Drive', 'ok'], ['Voice in the Claude app', 'ok']],
+      needs: ['Your pricing and terms rules', 'Any approvals needed before a contract goes out']
+    },
+    {
+      id: 'webforms', name: 'Web Forms', initial: 'W', role: 'Template librarian', colorVar: '--a-webforms', pos: [-4.4, 1],
+      status: 'wait', statusText: 'Waiting on files',
+      summary: 'Keeps your standard contracts and knows which fields change on each deal.',
+      does: [
+        'Keeps the current version of each contract',
+        'Maps the fields that change: ClientName, StartDate, MonthlyFee, TermLength, PaymentTerms',
+        'Flags when a contract in Web Forms changes'
+      ],
+      tools: [['Editable exports', 'wait'], ['Web Forms API', 'plan']],
+      needs: ['Editable copies of your 2–3 most-used contracts', 'A marked-up list of what changes per deal', 'The Web Forms vendor name or a link']
+    },
+    {
+      id: 'docusign', name: 'DocuSign', initial: 'D', role: 'Sending & tracking', colorVar: '--a-docusign', pos: [4.4, 1],
+      status: 'ok', statusText: 'Connected',
+      summary: 'Turns the approved contract into an envelope, routes it to signers, and reports back.',
+      does: [
+        'Creates envelopes from your DocuSign templates',
+        'Fills sender fields and sets signing order',
+        'Tracks status and sends reminders'
+      ],
+      tools: [['DocuSign connector', 'ok'], ['Templates', 'wait']],
+      needs: ['Who signs, in what order, and who gets copied', 'Templates built from your contracts (we build these together)']
+    },
+    {
+      id: 'open1', name: 'Open desk', initial: '+', role: 'Next agent', colorVar: '--a-open', pos: [-2.6, -3.8], open: true,
+      status: 'plan', statusText: 'Unassigned',
+      summary: 'Room for the next agent. Possible hires:',
+      ideas: ['Pricing & terms: applies your rate card and discount limits', 'Approvals: holds deals that need a second look']
+    },
+    {
+      id: 'open2', name: 'Open desk', initial: '+', role: 'Next agent', colorVar: '--a-open', pos: [2.6, -3.8], open: true,
+      status: 'plan', statusText: 'Unassigned',
+      summary: 'Room for the next agent. Possible hires:',
+      ideas: ['Follow-up: reminds clients and tells you when a contract is signed', 'CRM sync: logs signed deals where your team tracks them']
+    }
+  ];
+  const byId = Object.fromEntries(AGENTS.map(a => [a.id, a]));
+  const OUTBOX = { id: 'outbox', name: 'Client inbox', pos: [7.4, -2.6] };
+  const statusVar = { ok: '--ok', wait: '--wait', plan: '--plan', work: '--accent' };
+
+  // ---------- Renderer / scene ----------
+  const wrap = document.getElementById('sceneWrap');
+  const canvas = document.getElementById('scene');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
+  const HOME_CAM = new THREE.Vector3(0, 11.5, 16);
+  const HOME_TARGET = new THREE.Vector3(0, 0.6, 0);
+  camera.position.copy(HOME_CAM);
+
+  const controls = new THREE.OrbitControls(camera, canvas);
+  controls.target.copy(HOME_TARGET);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 7;
+  controls.maxDistance = 30;
+  controls.maxPolarAngle = Math.PI * 0.46;
+  controls.enablePan = false;
+
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x8899aa, 0.75);
+  scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75);
+  sun.position.set(6, 13, 8);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 40 });
+  sun.shadow.bias = -0.0008;
+  scene.add(sun);
+
+  const std = (opts = {}) => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.8, metalness: 0.05 }, opts));
+  const mats = {
+    floor: std({ roughness: 0.95 }),
+    desk: std({ roughness: 0.7 }),
+    metal: std({ roughness: 0.4, metalness: 0.5 }),
+    chair: std({ roughness: 0.6 }),
+    bot: std({ roughness: 0.45 }),
+    dark: std({ color: 0x1a1f26, roughness: 0.5 }),
+    paper: std({ color: 0xfbfaf6, roughness: 0.9 })
+  };
+  const agentMats = {};
+  AGENTS.forEach(a => { agentMats[a.id] = std({ roughness: 0.55 }); });
+
+  const box = (w, h, d, m) => {
+    const me = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+    me.castShadow = true; me.receiveShadow = true; return me;
+  };
+
+  // Floor island
+  const platform = new THREE.Mesh(new THREE.CylinderGeometry(9.6, 9.9, 0.4, 72), mats.floor);
+  platform.position.y = -0.2; platform.receiveShadow = true;
+  scene.add(platform);
+  const grid = new THREE.GridHelper(13, 13, 0xffffff, 0xffffff);
+  grid.material.transparent = true; grid.material.opacity = 0.55;
+  grid.position.y = 0.006;
+  scene.add(grid);
+  const hubMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.18 });
+  const hub = new THREE.Mesh(new THREE.CircleGeometry(1.7, 48), hubMat);
+  hub.rotation.x = -Math.PI / 2; hub.position.y = 0.01;
+  scene.add(hub);
+  const hubRingMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.6, side: THREE.DoubleSide });
+  const hubRing = new THREE.Mesh(new THREE.RingGeometry(1.66, 1.72, 64), hubRingMat);
+  hubRing.rotation.x = -Math.PI / 2; hubRing.position.y = 0.012;
+  scene.add(hubRing);
+
+  // ---------- Screens ----------
+  function rr(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function wrapLines(ctx, text, maxW) {
+    const words = text.split(' '); const out = []; let line = '';
+    for (const w of words) {
+      const t = line ? line + ' ' + w : w;
+      if (ctx.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t;
+    }
+    if (line) out.push(line);
+    return out;
+  }
+  function drawScreen(a) {
+    const s = a.screenState; const ctx = a.ctx; const W = 512, H = 300;
+    const col = tok(a.colorVar);
+    ctx.fillStyle = '#0f1720'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = col; ctx.fillRect(0, 0, W, 44);
+    ctx.fillStyle = '#0f1720'; ctx.font = '600 22px "IBM Plex Sans", sans-serif'; ctx.textBaseline = 'middle';
+    ctx.fillText(s.title, 18, 23);
+    ctx.font = '400 15px "IBM Plex Mono", monospace';
+    let y = 62;
+    if (a.id === 'claude') {
+      s.rows.slice(-4).forEach((r) => {
+        const mine = r.startsWith('You:');
+        const lines = wrapLines(ctx, r, 330).slice(0, 2);
+        const bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 24;
+        const bh = lines.length * 20 + 14;
+        const x = mine ? W - bw - 16 : 16;
+        ctx.fillStyle = mine ? '#2a3644' : col; rr(ctx, x, y, bw, bh, 10); ctx.fill();
+        ctx.fillStyle = mine ? '#e6ecf2' : '#0f1720';
+        lines.forEach((l, i) => ctx.fillText(l, x + 12, y + 17 + i * 20));
+        y += bh + 8;
+      });
+    } else {
+      s.rows.forEach((r, i) => {
+        const hl = s.highlight === i;
+        ctx.fillStyle = hl ? col : '#1d2733'; rr(ctx, 16, y, W - 32, 36, 6); ctx.fill();
+        ctx.fillStyle = hl ? '#0f1720' : '#c9d3dd';
+        ctx.fillText(r, 30, y + 18);
+        y += 44;
+      });
+    }
+    if (s.footer) {
+      ctx.fillStyle = '#7f8d9b'; ctx.font = '400 14px "IBM Plex Mono", monospace';
+      ctx.fillText(s.footer, 18, H - 20);
+    }
+    a.tex.needsUpdate = true;
+  }
+  const IDLE_SCREENS = {
+    claude: { title: 'Claude', rows: ['Claude: Ready when you are.', 'Claude: Try “Send the services agreement to Acme.”'], footer: 'listening' },
+    webforms: { title: 'Templates', rows: ['Services Agreement · 5 fields', 'Master Services · not mapped', 'Change Order · not mapped'], footer: 'waiting on editable exports' },
+    docusign: { title: 'Envelopes', rows: ['No sends yet'], footer: 'connector ready' },
+    open1: { title: 'Open desk', rows: ['Assign an agent'], footer: '' },
+    open2: { title: 'Open desk', rows: ['Assign an agent'], footer: '' }
+  };
+  function setScreen(id, patch) { const a = byId[id]; a.screenState = Object.assign({}, a.screenState, patch); drawScreen(a); }
+
+  // ---------- Desks ----------
+  const hitboxes = [];
+  function makeDesk(a) {
+    const g = new THREE.Group();
+    const [x, z] = a.pos;
+    g.position.set(x, 0, z);
+    g.rotation.y = Math.atan2(-x, -z);
+
+    const top = box(2.3, 0.1, 1.15, mats.desk); top.position.set(0, 0.92, 0); g.add(top);
+    [[-1.05, -0.48], [1.05, -0.48], [-1.05, 0.48], [1.05, 0.48]].forEach(([lx, lz]) => {
+      const leg = box(0.07, 0.88, 0.07, mats.metal); leg.position.set(lx, 0.44, lz); g.add(leg);
+    });
+
+    // monitor
+    const mon = new THREE.Group(); mon.position.set(0, 0.97, 0.32);
+    const base = box(0.42, 0.03, 0.24, mats.metal); base.position.y = 0.015; mon.add(base);
+    const stand = box(0.07, 0.36, 0.07, mats.metal); stand.position.y = 0.2; mon.add(stand);
+    const frame = box(1.05, 0.64, 0.05, mats.dark); frame.position.y = 0.58; mon.add(frame);
+    const c = document.createElement('canvas'); c.width = 512; c.height = 300;
+    a.ctx = c.getContext('2d');
+    a.tex = new THREE.CanvasTexture(c);
+    a.tex.anisotropy = 4;
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.97, 0.57), new THREE.MeshBasicMaterial({ map: a.tex }));
+    screen.position.set(0, 0.58, -0.027); screen.rotation.y = Math.PI;
+    mon.add(screen);
+    g.add(mon);
+
+    const kb = box(0.62, 0.025, 0.2, mats.dark); kb.position.set(0, 0.985, -0.2); g.add(kb);
+    // paper stack tinted with the agent colour
+    const stack = box(0.34, 0.08, 0.44, mats.paper); stack.position.set(0.82, 1.0, 0.05); stack.rotation.y = 0.12; g.add(stack);
+    const tab = box(0.34, 0.012, 0.08, agentMats[a.id]); tab.position.set(0.82, 1.046, 0.2); tab.rotation.y = 0.12; g.add(tab);
+
+    // chair
+    const chair = new THREE.Group(); chair.position.set(a.open ? 0.5 : 0, 0, a.open ? -1.25 : -0.95);
+    if (a.open) chair.rotation.y = 0.5;
+    const seat = box(0.62, 0.08, 0.56, mats.chair); seat.position.y = 0.52; chair.add(seat);
+    const back = box(0.62, 0.72, 0.07, mats.chair); back.position.set(0, 0.92, -0.27); chair.add(back);
+    const post = box(0.07, 0.48, 0.07, mats.metal); post.position.y = 0.24; chair.add(post);
+    const foot = box(0.6, 0.04, 0.6, mats.metal); foot.position.y = 0.02; chair.add(foot);
+    g.add(chair);
+
+    if (!a.open) {
+      const bot = new THREE.Group(); bot.position.set(0, 0, -0.95);
+      const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.66, 20), agentMats[a.id]);
+      torso.position.y = 0.92; torso.castShadow = true; bot.add(torso);
+      const headG = new THREE.Group(); headG.position.y = 1.47;
+      const head = box(0.42, 0.34, 0.38, mats.bot); headG.add(head);
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.09, 0.02), new THREE.MeshBasicMaterial({ color: 0x0f1720 }));
+      visor.position.set(0, 0.02, 0.2); headG.add(visor);
+      const eyeMat = new THREE.MeshBasicMaterial();
+      [-0.07, 0.07].forEach(ex => { const e = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 0.01), eyeMat); e.position.set(ex, 0.02, 0.212); headG.add(e); });
+      const ant = box(0.02, 0.18, 0.02, mats.metal); ant.position.y = 0.26; headG.add(ant);
+      const bulbMat = new THREE.MeshStandardMaterial({ emissiveIntensity: 1, roughness: 0.3 });
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), bulbMat); bulb.position.y = 0.37; headG.add(bulb);
+      bot.add(headG);
+      const arms = [];
+      [-0.3, 0.3].forEach(sx => {
+        const pivot = new THREE.Group(); pivot.position.set(sx, 1.12, 0);
+        const arm = box(0.09, 0.09, 0.55, agentMats[a.id]); arm.position.z = 0.27; pivot.add(arm);
+        pivot.rotation.x = 0.42; bot.add(pivot); arms.push(pivot);
+      });
+      g.add(bot);
+      a.parts = { headG, arms, bulbMat, eyeMat };
+    }
+
+    const sel = new THREE.Mesh(new THREE.RingGeometry(1.55, 1.66, 64), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+    sel.rotation.x = -Math.PI / 2; sel.position.set(0, 0.015, -0.3); sel.visible = false;
+    g.add(sel); a.selRing = sel;
+
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.2, 2.6), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.set(0, 1.1, -0.3); hit.userData.id = a.id; g.add(hit); hitboxes.push(hit);
+
+    a.group = g; a.screenState = IDLE_SCREENS[a.id];
+    scene.add(g);
+    drawScreen(a);
+  }
+  AGENTS.forEach(makeDesk);
+
+  // Client inbox: a mail tray on a plinth
+  const outbox = new THREE.Group(); outbox.position.set(OUTBOX.pos[0], 0, OUTBOX.pos[1]);
+  outbox.rotation.y = Math.atan2(-OUTBOX.pos[0], -OUTBOX.pos[1]);
+  const plinth = box(0.9, 0.9, 0.7, mats.chair); plinth.position.y = 0.45; outbox.add(plinth);
+  const tray = box(0.8, 0.12, 0.6, mats.metal); tray.position.y = 0.96; outbox.add(tray);
+  const trayIn = box(0.68, 0.06, 0.48, mats.paper); trayIn.position.y = 1.0; outbox.add(trayIn);
+  scene.add(outbox);
+
+  // Envelope that travels between desks
+  const env = new THREE.Group();
+  const envBody = box(0.46, 0.03, 0.3, mats.paper); env.add(envBody);
+  const flap = new THREE.Mesh(new THREE.ConeGeometry(0.19, 0.02, 3), mats.paper); flap.rotation.y = Math.PI / 6; flap.scale.set(1.25, 1, 0.7); flap.position.set(0, 0.02, -0.04); env.add(flap);
+  const seal = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 16), agentMats.docusign); seal.position.set(0, 0.03, 0.02); env.add(seal);
+  env.visible = false;
+  scene.add(env);
+
+  // ---------- Theme ----------
+  function applyTheme() {
+    scene.background = new THREE.Color(tok('--scene-bg'));
+    mats.floor.color.set(tok('--scene-floor'));
+    mats.desk.color.set(tok('--scene-desk'));
+    mats.metal.color.set(tok('--scene-metal'));
+    mats.chair.color.set(tok('--scene-chair'));
+    mats.bot.color.set(tok('--scene-bot'));
+    grid.material.color.set(tok('--scene-grid'));
+    hubMat.color.set(tok('--accent'));
+    hubRingMat.color.set(tok('--accent'));
+    AGENTS.forEach(a => {
+      agentMats[a.id].color.set(tok(a.colorVar));
+      a.selRing.material.color.set(tok('--accent'));
+      if (a.parts) a.parts.eyeMat.color.set(tok(a.colorVar));
+      drawScreen(a);
+    });
+    const dark = tok('--bg').toLowerCase() === '#10161d';
+    hemi.intensity = dark ? 0.55 : 0.75;
+    sun.intensity = dark ? 0.6 : 0.75;
+    refreshStatus();
+    renderLabels();
+    renderDetail();
+  }
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  // ---------- Labels ----------
+  const labelsEl = document.getElementById('labels');
+  const labelTargets = [];
+  function makeLabel(id, worldPos, cls) {
+    const el = document.createElement('button');
+    el.type = 'button'; el.className = 'label ' + (cls || '');
+    el.addEventListener('click', () => { if (byId[id]) select(id); });
+    labelsEl.appendChild(el);
+    labelTargets.push({ id, el, pos: worldPos });
+    return el;
+  }
+  AGENTS.forEach(a => { a.labelEl = makeLabel(a.id, new THREE.Vector3(a.pos[0], a.open ? 2.0 : 2.45, a.pos[1]), a.open ? 'open' : ''); });
+  const outLabel = makeLabel('outbox', new THREE.Vector3(OUTBOX.pos[0], 1.7, OUTBOX.pos[1]), 'dest');
+  outLabel.tabIndex = -1;
+
+  function liveStatus(a) { return a.working ? ['work', 'Working'] : [a.status, a.statusText]; }
+  function renderLabels() {
+    AGENTS.forEach(a => {
+      const [st, txt] = liveStatus(a);
+      a.labelEl.innerHTML = `<span class="sw" style="background:var(${a.colorVar})"></span><b>${a.name}</b><span class="st"><i style="background:var(${statusVar[st]})"></i>${txt}</span>`;
+      a.labelEl.classList.toggle('sel', a.id === selected);
+      a.labelEl.setAttribute('aria-label', `${a.name}, ${a.role}. ${txt}`);
+    });
+    outLabel.innerHTML = `<span class="sw" style="background:var(--muted)"></span><b>Client inbox</b><span class="st">${outboxCount ? outboxCount + ' sent (sim)' : 'empty'}</span>`;
+  }
+  const v3 = new THREE.Vector3();
+  function placeLabels() {
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    labelTargets.forEach(t => {
+      v3.copy(t.pos).project(camera);
+      const hidden = v3.z > 1;
+      t.el.style.visibility = hidden ? 'hidden' : 'visible';
+      const x = (v3.x * 0.5 + 0.5) * w, y = (-v3.y * 0.5 + 0.5) * h;
+      t.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
+    });
+  }
+
+  // ---------- Detail panel ----------
+  let selected = 'claude';
+  let outboxCount = 0;
+  const detailEl = document.getElementById('detail');
+  const chip = (label, st) => `<span class="chip"><i style="background:var(${statusVar[st]})"></i>${label}</span>`;
+  function renderDetail() {
+    const a = byId[selected];
+    const [st, txt] = liveStatus(a);
+    let body = `<p class="d-sum">${a.summary}</p>`;
+    if (a.open) {
+      body += `<div class="d-sec"><ul>${a.ideas.map(i => `<li>${i}</li>`).join('')}</ul></div>
+               <div class="d-sec"><h4>To fill this desk</h4><p style="margin:0">Tell Claude which job you want covered next and what rules it should follow.</p></div>`;
+    } else {
+      body += `<div class="d-sec"><h4>What it does</h4><ul>${a.does.map(i => `<li>${i}</li>`).join('')}</ul></div>
+               <div class="d-sec"><h4>Connections</h4><div class="chips">${a.tools.map(t => chip(t[0], t[1])).join('')}</div></div>
+               <div class="d-sec"><h4>Needs from you</h4><ul>${a.needs.map(i => `<li>${i}</li>`).join('')}</ul></div>`;
+    }
+    detailEl.innerHTML = `
+      <div class="eyebrow">Desk ${AGENTS.indexOf(a) + 1} of ${AGENTS.length}</div>
+      <div class="d-head" style="margin-top:8px">
+        <div class="d-sw" style="background:var(${a.colorVar})">${a.initial}</div>
+        <div><h2>${a.name}</h2><div class="role">${a.role}</div>
+          <span class="pill"><i style="background:var(${statusVar[st]})"></i>${txt}</span></div>
+      </div>${body}`;
+  }
+
+  // ---------- Selection & camera ----------
+  const desiredTarget = HOME_TARGET.clone();
+  let camHoming = false;
+  function select(id) {
+    selected = id;
+    AGENTS.forEach(a => { a.selRing.visible = a.id === id; });
+    const a = byId[id];
+    desiredTarget.set(a.pos[0] * 0.45, 0.8, a.pos[1] * 0.45);
+    camHoming = false;
+    renderLabels(); renderDetail();
+  }
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    desiredTarget.copy(HOME_TARGET); camHoming = true;
+  });
+
+  const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2();
+  let downAt = null;
+  canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+  canvas.addEventListener('pointerup', e => {
+    if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(hitboxes, false)[0];
+    if (hit) select(hit.object.userData.id);
+  });
+
+  // ---------- Sample run ----------
+  const logEl = document.getElementById('log');
+  const runBtn = document.getElementById('runBtn');
+  const confirmEl = document.getElementById('confirm');
+  let t0 = 0;
+  function log(who, text) {
+    if (logEl.querySelector('.empty')) logEl.innerHTML = '';
+    const li = document.createElement('li');
+    const s = ((performance.now() - t0) / 1000).toFixed(1);
+    const color = who === 'you' ? '--ink' : (byId[who] ? byId[who].colorVar : '--muted');
+    li.innerHTML = `<time>${s}s</time><span class="dot" style="background:var(${color})"></span><span></span>`;
+    li.lastChild.textContent = text;
+    logEl.appendChild(li);
+    li.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+  }
+  const wait = ms => new Promise(r => setTimeout(r, reduceMotion ? Math.min(ms, 250) : ms));
+  function setWorking(id) {
+    AGENTS.forEach(a => { a.working = a.id === id; });
+    refreshStatus(); renderLabels(); renderDetail();
+  }
+  function anchor(id) {
+    if (id === 'outbox') return new THREE.Vector3(OUTBOX.pos[0], 1.1, OUTBOX.pos[1]);
+    const a = byId[id];
+    return a.group.localToWorld(new THREE.Vector3(-0.55, 1.02, 0.1));
+  }
+  let flight = null;
+  function fly(from, to, dur) {
+    env.visible = true;
+    return new Promise(res => {
+      flight = { a: anchor(from), b: anchor(to), start: performance.now(), dur: reduceMotion ? 1 : dur, res };
+    });
+  }
+  function confirmGate() {
+    confirmEl.hidden = false;
+    document.getElementById('sendBtn').focus({ preventScroll: true });
+    return new Promise(res => {
+      const done = ok => { confirmEl.hidden = true; send.onclick = cancel.onclick = null; res(ok); };
+      const send = document.getElementById('sendBtn'), cancel = document.getElementById('cancelBtn');
+      send.onclick = () => done(true); cancel.onclick = () => done(false);
+    });
+  }
+  function resetScreens() { AGENTS.forEach(a => { a.screenState = IDLE_SCREENS[a.id]; drawScreen(a); }); }
+
+  async function runDeal() {
+    runBtn.disabled = true; runBtn.textContent = 'Running…';
+    logEl.innerHTML = ''; t0 = performance.now(); resetScreens();
+    env.visible = true; env.position.copy(anchor('claude'));
+
+    setWorking('claude'); select('claude');
+    const chat = ['You: Send the services agreement to Jane at Acme, $4,500 a month, starting Nov 1.'];
+    setScreen('claude', { title: 'Claude', rows: chat.slice(), footer: 'new request' });
+    log('you', 'Send the services agreement to Jane at Acme, $4,500 a month, starting Nov 1.');
+    await wait(1500);
+    chat.push('Claude: Term length and payment terms?'); setScreen('claude', { rows: chat.slice() });
+    log('claude', 'Asks: what term length and payment terms?');
+    await wait(1200);
+    chat.push('You: 12 months, net 30.'); setScreen('claude', { rows: chat.slice() });
+    log('you', '12 months, net 30.');
+    await wait(900);
+
+    log('claude', 'Asks Web Forms for the Services Agreement.');
+    await fly('claude', 'webforms', 1300);
+    setWorking('webforms');
+    setScreen('webforms', { highlight: 0, footer: 'pulling template' });
+    log('webforms', 'Pulls Services Agreement and its 5 fields.');
+    await wait(1300);
+    setScreen('webforms', { footer: 'sent to Claude' });
+    await fly('webforms', 'claude', 1300);
+
+    setWorking('claude');
+    chat.push('Claude: Filled 5 of 5 fields. Ready for your OK.'); setScreen('claude', { rows: chat.slice(), footer: 'awaiting approval' });
+    log('claude', 'Fills ClientName, StartDate, MonthlyFee, TermLength, PaymentTerms.');
+    await wait(700);
+    log('claude', 'Waiting for your OK before sending.');
+    const ok = await confirmGate();
+    if (!ok) {
+      log('you', 'Cancelled. Nothing went out.');
+      env.visible = false; setWorking(null); resetScreens();
+      runBtn.disabled = false; runBtn.textContent = 'Run again';
+      return;
+    }
+    log('you', 'Approved.');
+    await fly('claude', 'docusign', 1400);
+    setWorking('docusign'); select('docusign');
+    setScreen('docusign', { title: 'Envelope', rows: ['Services Agreement · Acme', '1. Jane Rivera (signer)', '2. You (countersign)'], highlight: 0, footer: 'creating envelope' });
+    log('docusign', 'Creates an envelope from the template and sets signing order.');
+    await wait(1400);
+    setScreen('docusign', { footer: 'sending' });
+    await fly('docusign', 'outbox', 1300);
+    outboxCount++;
+    setScreen('docusign', { highlight: 1, footer: 'sent · tracking signatures' });
+    log('docusign', 'Sent to Jane Rivera. Tracking status; reminders on.');
+    renderLabels();
+    await wait(1200);
+    setWorking(null);
+    chat.push('Claude: Sent. I’ll tell you when Jane signs.'); setScreen('claude', { rows: chat.slice(), footer: 'done' });
+    log('claude', 'Reports back: sent, and will tell you when it’s signed.');
+    setTimeout(() => { env.visible = false; }, reduceMotion ? 0 : 900);
+    runBtn.disabled = false; runBtn.textContent = 'Run again';
+  }
+  runBtn.addEventListener('click', runDeal);
+
+  // ---------- Status bulbs ----------
+  function refreshStatus() {
+    AGENTS.forEach(a => {
+      if (!a.parts) return;
+      const [st] = liveStatus(a);
+      const c = new THREE.Color(tok(statusVar[st]));
+      a.parts.bulbMat.color.copy(c); a.parts.bulbMat.emissive.copy(c);
+    });
+  }
+
+  // ---------- Resize & loop ----------
+  function resize() {
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.fov = camera.aspect < 0.8 ? 62 : camera.aspect < 1.2 ? 50 : 38;
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(wrap);
+  resize();
+
+  const step = new THREE.Vector3();
+  function tick(now) {
+    const t = now / 1000;
+    step.copy(desiredTarget).sub(controls.target).multiplyScalar(0.07);
+    if (step.lengthSq() > 1e-7) { controls.target.add(step); if (!camHoming) camera.position.add(step); }
+    if (camHoming) {
+      camera.position.lerp(HOME_CAM, 0.07);
+      if (camera.position.distanceTo(HOME_CAM) < 0.02) camHoming = false;
+    }
+    controls.update();
+
+    AGENTS.forEach((a, i) => {
+      if (!a.parts) return;
+      const { headG, arms, bulbMat } = a.parts;
+      if (!reduceMotion) {
+        headG.position.y = 1.47 + Math.sin(t * 1.6 + i) * 0.015;
+        headG.rotation.y = Math.sin(t * 0.5 + i * 2) * (a.working ? 0.05 : 0.18);
+        const speed = a.working ? 16 : 5, amp = a.working ? 0.08 : 0.025;
+        arms[0].rotation.x = 0.42 + Math.sin(t * speed + i) * amp;
+        arms[1].rotation.x = 0.42 + Math.sin(t * speed + i + Math.PI) * amp;
+      }
+      bulbMat.emissiveIntensity = reduceMotion ? 0.8 : (a.working ? 0.6 + 0.6 * Math.abs(Math.sin(t * 5)) : 0.5 + 0.3 * Math.sin(t * 1.5 + i));
+    });
+
+    if (flight) {
+      const p = Math.min(1, (now - flight.start) / flight.dur);
+      const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      env.position.lerpVectors(flight.a, flight.b, e);
+      env.position.y += Math.sin(Math.PI * e) * 1.4;
+      env.rotation.y = e * Math.PI * 2;
+      if (p >= 1) { const r = flight.res; flight = null; env.rotation.y = 0; r(); }
+    } else if (env.visible && !reduceMotion) {
+      env.rotation.y = Math.sin(t * 2) * 0.1;
+    }
+
+    renderer.render(scene, camera);
+    placeLabels();
+    requestAnimationFrame(tick);
+  }
+
+  applyTheme();
+  select('claude');
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => AGENTS.forEach(drawScreen));
+  requestAnimationFrame(tick);
+})();
+</script>
